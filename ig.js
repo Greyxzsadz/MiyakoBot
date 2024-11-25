@@ -1,87 +1,50 @@
-import axios from "axios";
+let isInit = true;
+let handler = require('./handler.js');
+global.reloadHandler = async function (restatConn) {
+  try {
+    delete require.cache[require.resolve('./handler.js')];
+    const Handler = require('./handler.js');
+    if (Object.keys(Handler || {}).length) handler = Handler;
+  } catch (e) {
+    console.error(e);
+  }
+  if (restatConn) {
+    const oldChats = global.conn.chats;
+    try { global.conn.ws.close(); } catch { }
+    conn.ev.removeAllListeners();
+    global.conn = makeWASocket(connectionOptions, { chats: oldChats });
+    isInit = true;
+  }
+  if (!isInit) {
+    conn.ev.off('messages.upsert', conn.handler);
+    conn.ev.off('group-participants.update', conn.participantsUpdate);
+    conn.ev.off('groups.update', conn.groupsUpdate);
+    // conn.ev.off('message.delete', conn.onDelete);
+    conn.ev.off('connection.update', conn.connectionUpdate);
+    conn.ev.off('creds.update', conn.credsUpdate);
+  }
 
-let handler = async (m, { conn, text, command }) => {
-if (!text) return m.reply(`PENGGUNAAN DOWN INSTAGRAM\n\n• Example: *.${command} https://www.instagram.com/p/C-zw9aBh2qg/?chaining=true`);
-m.reply(wait)
-try {
-let data = await instagram(text);
-if (data.downloads.length > 0) {
-let message = `◕ TITLE: ${data.title || "Tidak Ditemukan!!"}}\n◕ URL: ${data.source}\n`;
-let imageSent = false; 
-for (let download of data.downloads) {
-if (download.ext === 'mp4') {
-await conn.sendFile(m.chat, download.url, '', message, m);
-} else if (['jpg', 'png', 'jpeg'].includes(download.ext)) {
-if (!imageSent) {
-await conn.sendFile(m.chat, download.url, '', message, m);
-m.reply("_Sisa Gambar Akan Di Krim Ke Private Chat!_");
-imageSent = true;
-} else {
-await delay(4000);
-await conn.sendFile(m.sender, download.url, '', '', m);
-}
-}
-}
-} else {
-m.reply("Gagal mengunduh konten");
-}
-} catch (e) {
-console.log("Gagal mengunduh konten", e);
-m.reply(e.message);
-}
+  conn.welcome = '✧━━━━━━[ *WELCOME* ]━━━━━━✧\n\n┏––––––━━━━━━━━•\n│⫹⫺ @subject\n┣━━━━━━━━┅┅┅\n│( 👋 Hallo @user)\n├[ *INTRO* ]—\n│ *Nama:* \n│ *Umur:* \n│ *Gender:*\n┗––––––━━┅┅┅\n\n––––––┅┅ *DESCRIPTION* ┅┅––––––\n@desc\n\n*W E L C O M E*';
+  conn.bye = '✧━━━━━━[ *GOOD BYE* ]━━━━━━✧\nSayonara *@user* 👋\n\n*G O O D B Y E*';
+  conn.spromote = '@user sekarang admin!';
+  conn.sdemote = '@user sekarang bukan admin!';
+  conn.sDesc = 'Deskripsi telah diubah ke \n@desc';
+  conn.sSubject = 'Judul grup telah diubah ke \n@subject';
+  conn.sIcon = 'Icon grup telah diubah!';
+  conn.sRevoke = 'Link group telah diubah ke \n@revoke';
+  conn.handler = handler.handler.bind(global.conn);
+  conn.participantsUpdate = handler.participantsUpdate.bind(global.conn);
+  conn.groupsUpdate = handler.groupsUpdate.bind(global.conn);
+  conn.onDelete = handler.deleteUpdate.bind(global.conn);
+  conn.connectionUpdate = connectionUpdate.bind(global.conn);
+  conn.credsUpdate = saveCreds.bind(global.conn);
+
+  conn.ev.on('messages.upsert', conn.handler);
+  conn.ev.on('group-participants.update', conn.participantsUpdate);
+  conn.ev.on('groups.update', conn.groupsUpdate);
+  conn.ev.on('message.delete', conn.onDelete);
+  conn.ev.on('connection.update', conn.connectionUpdate);
+  conn.ev.on('creds.update', conn.credsUpdate);
+  isInit = false;
+  return true;
 };
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-handler.help = ["instagram"];
-handler.tags = ["downloader"];
-handler.command = /^(ig(dl)?|instagram(dl)?)$/i;
-handler.limit = 3;
-export default handler;
-
-
-async function instagram(url) {
-try {
-let response = await axios.get(`https://vkrdownloader.vercel.app/server?vkr=${url}`);
-let data = response.data.data;
-if (data.downloads && Array.isArray(data.downloads)) {
-let downloads = data.downloads.map(d => ({
-url: d.url,
-format_id: d.format_id,
-ext: d.ext,
-size: d.size || "TIDAK TERSEDIA"
-}));
-return {
-title: data.title,
-url: data.url,
-source: data.source,
-description: data.description,
-downloads: downloads
-};
-} else {
-throw new Error("Tidak ada data unduhan yang tersedia.");
-}
-} catch (error) {
-throw new Error(error.message);
-}
-}
-
-
-/*import fetch from 'node-fetch';
-
-let handler = async (m, { conn, args, usedPrefix, command }) => {
-    if (!args[0]) throw `*Contoh:* ${usedPrefix}${command} https://www.instagram.com/p/ByxKbUSnubS/?utm_source=ig_web_copy_link`
-    m.reply(wait)
-    try {
-        const api = await fetch(`https://api.lolhuman.xyz/api/instagram?apikey=${lolkey}&url=${args[0]}`)
-        const res = await api.json()
-            conn.sendFile(m.chat, res.result[1], 'KhususVideo.mp4', `*Instagram Downloader*`, m)
-    } catch (e) {
-        throw `*Server Down!*`
-    }
-}
-
-handler.help = ['instagram'].map(v => v + ' <url>')
-handler.tags = ['downloader']
-handler.command = /^(ig|instagram|igdl|instagramdl|igstroy)$/i
-handler.limit = true
-
-export default handler*/
