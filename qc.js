@@ -1,197 +1,92 @@
-if (typeof plugin !== 'function')
-                continue
-            if ((usedPrefix = (match[0] || '')[0])) {
-                let noPrefix = m.text.replace(usedPrefix, '')
-                let [command, ...args] = noPrefix.trim().split` `.filter(v => v)
-                args = args || []
-                let _args = noPrefix.trim().split` `.slice(1)
-                let text = _args.join` `
-                
-                command = (command || '').toLowerCase()
-                let fail = plugin.fail || global.dfail 
-                let isAccept = plugin.command instanceof RegExp ? 
-                    plugin.command.test(command) :
-                    Array.isArray(plugin.command) ? 
-                        plugin.command.some(cmd => cmd instanceof RegExp ? 
-                            cmd.test(command) :
-                            cmd === command
-                        ) :
-                        typeof plugin.command === 'string' ? 
-                            plugin.command === command :
-                            false
+const { WAMessageStubType } = require('@adiwajshing/baileys');
+const PhoneNumber = require('awesome-phonenumber');
+const chalk = require('chalk');
+const { watchFile } = require('fs');
 
-                if (!isAccept)
-                    continue
-                m.plugin = name
-                if (m.chat in global.db.data.chats || m.sender in global.db.data.users) {
-                    let chat = global.db.data.chats[m.chat]
-                    let user = global.db.data.users[m.sender]
-                    if (name != 'owner-unbanchat.js' && name != 'owner-exec.js' && name != 'owner-exec2.js' && name != 'tool-delete.js' && chat?.isBanned)
-                        return 
-                    if (name != 'owner-unbanuser.js' && user?.banned)
-                        return
-                }
-                if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) { 
-                    fail('owner', m, this)
-                    continue
-                }
-                if (plugin.rowner && !isROwner) { 
-                    fail('rowner', m, this)
-                    continue
-                }
-                if (plugin.owner && !isOwner) { 
-                    fail('owner', m, this)
-                    continue
-                }
-                if (plugin.mods && !isMods) { 
-                    fail('mods', m, this)
-                    continue
-                }
-                if (plugin.premium && !isPrems) {
-                    fail('premium', m, this)
-                    continue
-                }
-                if (plugin.group && !m.isGroup) { 
-                    fail('group', m, this)
-                    continue
-                } else if (plugin.botAdmin && !isBotAdmin) { 
-                    fail('botAdmin', m, this)
-                    continue
-                } else if (plugin.admin && !isAdmin) { 
-                    fail('admin', m, this)
-                    continue
-                }
-                if (plugin.private && m.isGroup) { 
-                    fail('private', m, this)
-                    continue
-                }
-                if (plugin.register == true && _user.registered == false) {
-                    fail('unreg', m, this)
-                    continue
-                }
-                m.isCommand = true
-                let xp = "exp" in plugin ? parseInt(plugin.exp) : 17 
-                if (xp > 200)
-                    this.reply(m.chat, `[🚩] *Sepertinya Anda Curang Menggunakan Kalkulator*\Buy Limit /buy limit\n\nCheat Limit /ngechit`, )
-                else 
-                m.exp += xp
-                if (!isPrems && plugin.limit && global.db.data.users[m.sender].limit < plugin.limit * 1) {
-                    this.reply(m.chat, `[🚩] *Limit Anda Habis Buy Limit Dengan Comand*\n\nBuy Limit /buy limit`,)
-                    continue 
-                }
-                if (plugin.level > _user.level) {
-                    this.reply(m.chat, `[🚩] Diperlukan level ${plugin.level} untuk menggunakan perintah ini\n*Level mu:* ${_user.level} 📊*`,)
-                    continue 
-                }
-                let extra = {
-                    match,
-                    usedPrefix,
-                    noPrefix,
-                    _args,
-                    args,
-                    command,
-                    text,
-                    conn: this,
-                    participants,
-                    groupMetadata,
-                    user,
-                    bot,
-                    isROwner,
-                    isOwner,
-                    isRAdmin,
-                    isAdmin,
-                    isBotAdmin,
-                    isPrems,
-                    chatUpdate,
-                    __dirname: ___dirname,
-                    __filename
-                }
-                try {
-                    await plugin.call(this, m, extra)
-                    if (!isPrems)
-                        m.limit = m.limit || plugin.limit || false
-                } catch (e) {
-                   
-                    m.error = e
-                    console.error(e)
-                    if (e) {
-                        let text = format(e)
-                        for (let key of Object.values(global.APIKeys))
-                            text = text.replace(new RegExp(key, "g"), "#HIDDEN#")
-                        if (e.name)
-                            for (let [jid] of global.owner.filter(([number, _, isDeveloper]) => isDeveloper && number)) {
-                                let data = (await conn.onWhatsApp(jid))[0] || {}
-                                if (data.exists)
-                                    return m.reply(`*🗂️ Plugins:* ${m.plugin}\n*👤 Sender:* ${m.sender}\n*💬 Chat:* ${m.chat}\n*💻 Command:* ${usedPrefix}${command} ${args.join(" ")}\n📄 *Error Logs:*\n\n${text}`.trim(), data.jid)
-                            }
-                        m.reply(text)
-                    }
-                } finally {
-                  
-                    if (typeof plugin.after === "function") {
-                        try {
-                            await plugin.after.call(this, m, extra)
-                        } catch (e) {
-                            console.error(e)
-                        }
-                    }
-                    if (m.limit)
-                        m.reply(+m.limit + " ʟɪᴍɪᴛ ᴛᴇʀᴘᴀᴋᴀɪ ✔️")
-                }
-                break
-            }
-        }
-    } catch (e) {
-        console.error(e)
-    } finally {
-        if (opts['queque'] && m.text) {
-            const quequeIndex = this.msgqueque.indexOf(m.id || m.key.id)
-            if (quequeIndex !== -1)
-                this.msgqueque.splice(quequeIndex, 1)
-        }
-     
-        let user, stats = global.db.data.stats
-        if (m) {
-            if (m.sender && (user = global.db.data.users[m.sender])) {
-                user.exp += m.exp
-                user.limit -= m.limit * 1
-            }
+const terminalImage = global.opts['img'] ? require('terminal-image') : '';
+const urlRegex = require('url-regex-safe')({ strict: false });
 
-            let stat
-            if (m.plugin) {
-                let now = +new Date
-                if (m.plugin in stats) {
-                    stat = stats[m.plugin]
-                    if (!isNumber(stat.total))
-                        stat.total = 1
-                    if (!isNumber(stat.success))
-                        stat.success = m.error != null ? 0 : 1
-                    if (!isNumber(stat.last))
-                        stat.last = now
-                    if (!isNumber(stat.lastSuccess))
-                        stat.lastSuccess = m.error != null ? 0 : now
-                } else
-                    stat = stats[m.plugin] = {
-                        total: 1,
-                        success: m.error != null ? 0 : 1,
-                        last: now,
-                        lastSuccess: m.error != null ? 0 : now
-                    }
-                stat.total += 1
-                stat.last = now
-                if (m.error == null) {
-                    stat.success += 1
-                    stat.lastSuccess = now
-                }
-            }
-        }
+module.exports = async function (m, conn = { user: {} }) {
+  let _name = await conn.getName(m.sender);
+  let sender = PhoneNumber('+' + m.sender.replace('@s.whatsapp.net', '')).getNumber('international') + (_name ? ' ~' + _name : '');
+  let chat = await conn.getName(m.chat);
+  let img;
+  try {
+    if (global.opts['img'])
+      img = /sticker|image/gi.test(m.mtype) ? await terminalImage.buffer(await m.download()) : false;
+  } catch (e) {
+    console.error(e);
+  }
+  let filesize = (m.msg ?
+    m.msg.vcard ?
+      m.msg.vcard.length :
+      m.msg.fileLength ?
+        m.msg.fileLength.low || m.msg.fileLength :
+        m.msg.axolotlSenderKeyDistributionMessage ?
+          m.msg.axolotlSenderKeyDistributionMessage.length :
+          m.text ?
+            m.text.length :
+            0
+    : m.text ? m.text.length : 0) || 0;
+  let user = global.DATABASE.data.users[m.sender];
+  let me = PhoneNumber('+' + (conn.user?.jid).replace('@s.whatsapp.net', '')).getNumber('international');
+  console.log(`
+\n▣ ${chalk.redBright('%s')}\n│⏰ ${chalk.black(chalk.bgYellow('%s'))}\n│📑 ${chalk.black(chalk.bgGreen('%s'))}\n│📊 ${chalk.magenta('%s [%s %sB]')}
+│📤 ${chalk.green('%s')}\n│📃 ${chalk.yellow('%s%s')}\n│📥 ${chalk.green('%s')}\n│💬 ${chalk.black(chalk.bgYellow('%s'))}
+ ⟐ ╾╴╾╴╾╴╾ ┈┈
+`.trim(),
+    me + ' ~' + conn.user.name,
+    (m.messageTimestamp ? new Date(1000 * (m.messageTimestamp.low || m.messageTimestamp)) : new Date).toTimeString(),
+    m.messageStubType ? WAMessageStubType[m.messageStubType] : '',
+    filesize,
+    filesize === 0 ? 0 : (filesize / 1009 ** Math.floor(Math.log(filesize) / Math.log(1000))).toFixed(1),
+    ['', ...'KMGTP'][Math.floor(Math.log(filesize) / Math.log(1000))] || '',
+    sender,
+    m ? m.exp : '?',
+    user ? '|' + user.exp + '|' + user.limit : '' + ('|' + user.level),
+    m.chat + (chat ? ' ~' + chat : ''),
+    m.mtype ? m.mtype.replace(/message$/i, '').replace('audio', m.msg.ptt ? 'PTT' : 'audio').replace(/^./, v => v.toUpperCase()) : ''
+  );
+  if (img) console.log(img.trimEnd());
+  if (typeof m.text === 'string' && m.text) {
+    let log = m.text.replace(/\u200e+/g, '');
+    let mdRegex = /(?<=(?:^|[\s\n])\S?)(?:([*_~])(.+?)\1|```((?:.||[\n\r])+?)```)(?=\S?(?:[\s\n]|$))/g;
+    let mdFormat = (depth = 4) => (_, type, text, monospace) => {
+      let types = {
+        _: 'italic',
+        '*': 'bold',
+        '~': 'strikethrough'
+      };
+      text = text || monospace;
+      let formatted = !types[type] || depth < 1 ? text : chalk[types[type]](text.replace(mdRegex, mdFormat(depth - 1)));
+      return formatted;
+    };
+    if (log.length < 4096)
+      log = log.replace(urlRegex, (url, i, text) => {
+        let end = url.length + i;
+        return i === 0 || end === text.length || (/^\s$/.test(text[end]) && /^\s$/.test(text[i - 1])) ? chalk.blueBright(url) : url;
+      });
+    log = log.replace(mdRegex, mdFormat(4));
+    if (m.mentionedJid) for (let user of m.mentionedJid) log = log.replace('@' + user.split`@`[0], chalk.blueBright('@' + await conn.getName(user)));
+    console.log(m.error != null ? chalk.red(log) : m.isCommand ? chalk.yellow(log) : log);
+  }
+  if (m.messageStubParameters) console.log(m.messageStubParameters.map(jid => {
+    jid = conn.decodeJid(jid);
+    let name = conn.getName(jid);
+    return chalk.gray(PhoneNumber('+' + jid.replace('@s.whatsapp.net', '')).getNumber('international') + (name ? ' ~' + name : ''));
+  }).join(', '));
+  if (/document/i.test(m.mtype)) console.log(`🗂️ ${m.msg.fileName || m.msg.displayName || 'Document'}`);
+  else if (/ContactsArray/i.test(m.mtype)) console.log(`👨‍👩‍👧‍👦 ${' ' || ''}`);
+  else if (/contact/i.test(m.mtype)) console.log(`👨 ${m.msg.displayName || ''}`);
+  else if (/audio/i.test(m.mtype)) {
+    const duration = m.msg.seconds;
+    console.log(`${m.msg.ptt ? '🎤 (PTT ' : '🎵 ('}AUDIO) ${Math.floor(duration / 60).toString().padStart(2, 0)}:${(duration % 60).toString().padStart(2, 0)}`);
+  }
 
-        try {
-            if (!opts['noprint']) await (await import(`./lib/print.js`)).default(m, this)
-        } catch (e) {
-            console.log(m, m.quoted, e)
-        }
-        if (opts['autoread'])
-            await this.chatRead(m.chat, m.isGroup ? m.sender : undefined, m.id || m.key.id).catch(() => { })
-    }
-}
+  console.log();
+};
+
+let file = __filename;
+watchFile(file, () => {
+  console.log(chalk.redBright("Update 'lib/print.js'"));
+});
