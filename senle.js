@@ -1,68 +1,61 @@
-sendFile: {
-            /**
-             * Send Media/File with Automatic Type Specifier
-             * @param {String} jid
-             * @param {String|Buffer} path
-             * @param {String} filename
-             * @param {String} caption
-             * @param {import('@adiwajshing/baileys').proto.WebMessageInfo} quoted
-             * @param {Boolean} ptt
-             * @param {Object} options
-             */
-            async value(jid, path, filename = '', caption = '', quoted, ptt = false, options = {}) {
-                let type = await conn.getFile(path, true)
-                let { res, data: file, filename: pathFile } = type
-                if (res && res.status !== 200 || file.length <= 65536) {
-                    try { throw { json: JSON.parse(file.toString()) } }
-                    catch (e) { if (e.json) throw e.json }
-                }
-                const fileSize = fs.statSync(pathFile).size / 1024 / 1024
-                if (fileSize >= 100) throw new Error('File size is too big!')
-                let opt = {}
-                if (quoted) opt.quoted = quoted
-                if (!type) options.asDocument = true
-                let mtype = '', mimetype = options.mimetype || type.mime, convert
-                if (/webp/.test(type.mime) || (/image/.test(type.mime) && options.asSticker)) mtype = 'sticker'
-                else if (/image/.test(type.mime) || (/webp/.test(type.mime) && options.asImage)) mtype = 'image'
-                else if (/video/.test(type.mime)) mtype = 'video'
-                else if (/audio/.test(type.mime)) (
-                    convert = await toAudio(file, type.ext),
-                    file = convert.data,
-                    pathFile = convert.filename,
-                    mtype = 'audio',
-                    mimetype = options.mimetype || 'audio/ogg; codecs=opus'
-                )
-                else mtype = 'document'
-                if (options.asDocument) mtype = 'document'
+import fs from 'fs'
+import syntaxError from 'syntax-error'
+import path from 'path'
+import util from 'util'
 
-                delete options.asSticker
-                delete options.asLocation
-                delete options.asVideo
-                delete options.asDocument
-                delete options.asImage
+const _fs = fs.promises
 
-                let message = {
-                    ...options,
-                    caption,
-                    ptt,
-                    [mtype]: { url: pathFile },
-                    mimetype,
-                    fileName: filename || pathFile.split('/').pop()
-                }
-                /**
-                 * @type {import('@adiwajshing/baileys').proto.WebMessageInfo}
-                 */
-                let m
-                try {
-                    m = await conn.sendMessage(jid, message, { ...opt, ...options, ...ephemeral })
-                } catch (e) {
-                    console.error(e)
-                    m = null
-                } finally {
-                    if (!m) m = await conn.sendMessage(jid, { ...message, [mtype]: file }, { ...opt, ...options, ...ephemeral })
-                    file = null // releasing the memory
-                    return m
-                }
-            },
-            enumerable: true
-        },
+let handler = async (m, { text, usedPrefix, command, __dirname }) => {
+    if (!text) throw `
+Penggunaan: ${usedPrefix}${command} <name file>
+Contoh: ${usedPrefix}savefile main.js
+        ${usedPrefix}saveplugin owner
+        ${usedPrefix}sfp owner
+`.trim()
+    if (!m.quoted) throw `Balas/quote media/text yang ingin disimpan`
+    if (/p(lugin)?/i.test(command)) {
+        let filename = text.replace(/plugin(s)\//i, '') + (/\.js$/i.test(text) ? '' : '.js')
+        const error = syntaxError(m.quoted.text, filename, {
+            sourceType: 'module',
+            allowReturnOutsideFunction: true,
+            allowAwaitOutsideFunction: true
+        })
+        if (error) throw error
+        const pathFile = path.join(__dirname, filename)
+        // TODO: make confirmation to save if file already exists
+        // if (fs.existSync(pathFile, fs.constants.R_OK)) return m.reply(`File ${filename} sudah ada`)
+        await _fs.writeFile(pathFile,`/*\nSCRIPT BY © IKYY OFFC\n•• recode kasih credits \n•• contacts: (t.me/ikyyNeh)\n•• wa: 6282213982155\n•• wm aing jan di hapus dong om:)\n*/ ` + `\n\n` + m.quoted.text)
+        m.reply(`
+Successfully saved to \`\`\`plugins/${filename}\`\`\`
+`.trim())
+    } else {
+        const isJavascript = m.quoted.text && !m.quoted.mediaMessage && /\.js/.test(text)
+        if (isJavascript) {
+            const error = syntaxError(m.quoted.text, text, {
+                sourceType: 'module',
+                allowReturnOutsideFunction: true,
+                allowAwaitOutsideFunction: true
+            })
+            if (error) throw error
+            await _fs.writeFile(text, m.quoted.text)
+            m.reply(`
+Successfully saved to \`\`\`${text}\`\`\`
+`.trim())
+        } else if (m.quoted.mediaMessage) {
+            const media = await m.quoted.download()
+            await _fs.writeFile(text, media)
+            m.reply(`
+Successfully saved media to *${text}*
+`.trim())
+        } else {
+            throw 'Not supported!!'
+        }
+    }
+}
+handler.help = ['plugin', 'file'].map(v => `save${v}`)
+handler.tags = ['owner']
+handler.command = /^(save|s|sf)(p(lugin)?|(f(ile)?))$/i
+
+handler.rowner = true
+
+export default handler
