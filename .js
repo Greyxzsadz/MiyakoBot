@@ -1,35 +1,23 @@
-if (useCode.isTrue && !nexsock.authState.creds.registered) {
-    await inquirer
-      .prompt([
-        {
-          type: "confirm",
-          name: "confirm",
-          message: "Terhubung menggunakan pairing code?",
-          default: true,
-        },
-      ])
-      .then(async ({ confirm }) => {
-        useCode.isTrue = confirm;
-        if (confirm) {
-          inquirer
-            .prompt([
-              {
-                type: "number",
-                name: "number",
-                message: "Masukkan nomor WhatsApp: +",
-              },
-            ])
-            .then(async ({ number }) => {
-              let code = await nexsock.requestPairingCode(number);
-              logger(
-                "primary",
-                `Pairing Code for +${number}:`,
-                code.match(/.{1,4}/g)?.join("-") || code
-              );
-            });
-        } else {
-          start();
-        }
-      })
-      .catch(console.log);
-                  }
+version,
+    logger: pino({ level: "fatal" }).child({ level: "fatal" }),
+    auth: {
+      creds: state.creds,
+      keys: makeCacheableSignalKeyStore(
+        state.keys,
+        pino({}).child({ level: "fatal" })
+      ),
+    },
+    browser: Browsers.ubuntu("Firefox"),
+    defaultQueryTimeoutMs: undefined,
+    generateHighQualityLinkPreview: true,
+    getMessage: async (key) => {
+      if (store) {
+        const m = await store.loadMessage(key.remoteJid, key.id);
+        return m;
+      } else return proto.Message.fromObject({});
+    },
+    markOnlineOnConnect: true,
+    msgRetryCounterCache,
+    printQRInTerminal: !useCode.isTrue,
+    shouldSyncHistoryMessage: () => true,
+    syncFullHistory: true,
